@@ -6,27 +6,30 @@ const {
 
 const P = require("pino")
 const fs = require("fs")
-const qrcode = require("qrcode-terminal")
 
 async function startBot() {
 
- const { state, saveCreds } = await useMultiFileAuthState("auth")
+ const { state, saveCreds } = await useMultiFileAuthState("./auth")
 
  const sock = makeWASocket({
+  auth: state,
   logger: P({ level: "silent" }),
-  auth: state
+  printQRInTerminal: true
  })
 
  sock.ev.on("creds.update", saveCreds)
 
- sock.ev.on("connection.update", ({ connection, qr }) => {
+ sock.ev.on("connection.update", (update) => {
 
-  if(qr){
-   qrcode.generate(qr, { small: true })
-  }
+  const { connection } = update
 
   if(connection === "open"){
    console.log("👹 Dante conectado")
+  }
+
+  if(connection === "close"){
+   console.log("⚠️ Reconectando...")
+   startBot()
   }
 
  })
@@ -34,18 +37,14 @@ async function startBot() {
  sock.ev.on("messages.upsert", async ({ messages }) => {
 
   const msg = messages[0]
-
   if(!msg.message) return
 
+  const from = msg.key.remoteJid
   const text =
    msg.message.conversation ||
    msg.message.extendedTextMessage?.text
 
   if(!text) return
-
-  const from = msg.key.remoteJid
-
-  // DATABASE
 
   let users = {}
 
@@ -61,57 +60,35 @@ async function startBot() {
    }
   }
 
-  // /bal
-
   if(text === "/bal"){
-
    await sock.sendMessage(from, {
-    text:
-`👹 Souls: ${users[from].souls}`
+    text: `👹 Souls: ${users[from].souls}`
    })
-
   }
-
-  // /profile
 
   if(text === "/profile"){
-
    await sock.sendMessage(from, {
     text:
-`👹 DANTE PROFILE
+`👹 PROFILE
 
-🔥 Level: ${users[from].level}
-✨ XP: ${users[from].xp}
-💰 Souls: ${users[from].souls}`
+💰 Souls: ${users[from].souls}
+⭐ Level: ${users[from].level}
+✨ XP: ${users[from].xp}`
    })
-
   }
-
-  // /cazar
 
   if(text === "/cazar"){
-
-   const gain =
-    Math.floor(Math.random() * 300)
+   const gain = Math.floor(Math.random() * 300)
 
    users[from].souls += gain
-   users[from].xp += 15
+   users[from].xp += 10
 
    await sock.sendMessage(from, {
-    text:
-`🔥 Cazaste un demonio
-
-+${gain} souls
-+15 XP`
+    text: `🔥 Cazaste un demonio\n+${gain} souls`
    })
-
   }
 
-  fs.writeFileSync(
-   "./database/users.json",
-   JSON.stringify(users, null, 2)
-  )
-
+  fs.writeFileSync("./database/users.json", JSON.stringify(users, null, 2))
  })
 
 }
