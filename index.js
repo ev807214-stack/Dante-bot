@@ -1,23 +1,20 @@
 const {
  default: makeWASocket,
- useMultiFileAuthState
+ useMultiFileAuthState,
+ DisconnectReason
 } = require("@whiskeysockets/baileys")
 
 const P = require("pino")
 const fs = require("fs")
 
-let isRunning = false
-
 async function startBot() {
-
- if (isRunning) return
- isRunning = true
 
  const { state, saveCreds } = await useMultiFileAuthState("./auth")
 
  const sock = makeWASocket({
   auth: state,
-  logger: P({ level: "silent" })
+  logger: P({ level: "silent" }),
+  printQRInTerminal: false
  })
 
  sock.ev.on("creds.update", saveCreds)
@@ -26,27 +23,24 @@ async function startBot() {
 
   const { connection, qr } = update
 
-  // 📱 QR CODE
+  // 📱 QR
   if (qr) {
-   console.log("\n📱 ESCANEA ESTE QR:\n")
+   console.log("\n====================")
+   console.log("📱 ESCANEA ESTE QR")
+   console.log("====================\n")
    console.log(qr)
   }
 
-  // 👹 CONECTADO
   if (connection === "open") {
    console.log("👹 Dante conectado")
   }
 
-  // ⚠️ DESCONECTADO
   if (connection === "close") {
-
-   console.log("⚠️ Conexión cerrada, reintentando...")
-
-   isRunning = false
+   console.log("⚠️ Conexión cerrada, reiniciando en 10s...")
 
    setTimeout(() => {
     startBot()
-   }, 8000)
+   }, 10000)
   }
 
  })
@@ -79,7 +73,7 @@ async function startBot() {
    }
   }
 
-  // 💰 BALANCE
+  // 💰 BAL
   if (text === "/bal") {
    await sock.sendMessage(from, {
     text: `👹 Souls: ${users[from].souls}`
@@ -115,7 +109,7 @@ async function startBot() {
    })
   }
 
-  // 💾 GUARDAR
+  // 💾 SAVE
   fs.writeFileSync(
    "./database/users.json",
    JSON.stringify(users, null, 2)
