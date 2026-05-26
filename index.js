@@ -1,13 +1,17 @@
 const {
  default: makeWASocket,
- useMultiFileAuthState,
- DisconnectReason
+ useMultiFileAuthState
 } = require("@whiskeysockets/baileys")
 
 const P = require("pino")
 const fs = require("fs")
 
+let isRunning = false
+
 async function startBot() {
+
+ if (isRunning) return
+ isRunning = true
 
  const { state, saveCreds } = await useMultiFileAuthState("./auth")
 
@@ -22,19 +26,27 @@ async function startBot() {
 
   const { connection, qr } = update
 
-  // 📱 QR CODE (IMPORTANTE)
+  // 📱 QR CODE
   if (qr) {
    console.log("\n📱 ESCANEA ESTE QR:\n")
    console.log(qr)
   }
 
+  // 👹 CONECTADO
   if (connection === "open") {
    console.log("👹 Dante conectado")
   }
 
+  // ⚠️ DESCONECTADO
   if (connection === "close") {
-   console.log("⚠️ Reconectando...")
-   startBot()
+
+   console.log("⚠️ Conexión cerrada, reintentando...")
+
+   isRunning = false
+
+   setTimeout(() => {
+    startBot()
+   }, 8000)
   }
 
  })
@@ -52,7 +64,7 @@ async function startBot() {
 
   if (!text) return
 
-  // 📦 BASE DE DATOS
+  // 📦 DATABASE
   let users = {}
 
   if (fs.existsSync("./database/users.json")) {
@@ -103,7 +115,7 @@ async function startBot() {
    })
   }
 
-  // 💾 GUARDAR DATA
+  // 💾 GUARDAR
   fs.writeFileSync(
    "./database/users.json",
    JSON.stringify(users, null, 2)
